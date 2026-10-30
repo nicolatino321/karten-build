@@ -30,7 +30,7 @@ jobs:
           mkdir -p ~/.ssh
           test -n "$KARTEN_KNOWN_HOSTS"
           printf '%s\n' "$KARTEN_KNOWN_HOSTS" > ~/.ssh/known_hosts
-          git clone --quiet --no-checkout git@github.com:nicolatino321/karten-ios.git "$RUNNER_TEMP/source" > "$RUNNER_TEMP/checkout.log" 2>&1
+          git clone --quiet --single-branch --branch main --no-checkout git@github.com:nicolatino321/karten-ios.git "$RUNNER_TEMP/source" > "$RUNNER_TEMP/checkout.log" 2>&1
           git -C "$RUNNER_TEMP/source" checkout --quiet --detach "$SOURCE_SHA" >> "$RUNNER_TEMP/checkout.log" 2>&1
       - name: Test core and configure privately
         env:
