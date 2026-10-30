@@ -5,6 +5,11 @@ on:
       source_sha:
         description: Approved private source commit
         required: true
+      validation_scope:
+        description: Private validation scope
+        type: choice
+        options: [full, changed]
+        default: full
 concurrency:
   group: karten-private-build
   cancel-in-progress: true
@@ -13,7 +18,7 @@ permissions:
 jobs:
   build:
     runs-on: macos-15
-    timeout-minutes: 25
+    timeout-minutes: 30
     env:
       GIT_SSH_COMMAND: ssh -i /tmp/karten-deploy-key -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes
       KARTEN_KNOWN_HOSTS: ${{ vars.KARTEN_KNOWN_HOSTS }}
@@ -45,6 +50,9 @@ jobs:
           cd "$RUNNER_TEMP/source"
           python3 scripts/build_unsigned.py app >> "$RUNNER_TEMP/private-build.log" 2>&1
       - name: Test iPhone interface privately
+        timeout-minutes: 24
+        env:
+          KARTEN_UI_SCOPE: ${{ inputs.validation_scope }}
         run: |
           cd "$RUNNER_TEMP/source"
           python3 scripts/build_unsigned.py ui >> "$RUNNER_TEMP/private-build.log" 2>&1
