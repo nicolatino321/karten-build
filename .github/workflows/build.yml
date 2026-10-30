@@ -5,6 +5,9 @@ on:
       source_sha:
         description: Approved private source commit
         required: true
+concurrency:
+  group: karten-private-build
+  cancel-in-progress: true
 permissions:
   contents: read
 jobs:
