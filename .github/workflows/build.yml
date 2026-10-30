@@ -27,14 +27,22 @@ jobs:
           curl --fail --silent https://api.github.com/meta | python3 -c 'import json,sys; print("\n".join("github.com "+key for key in json.load(sys.stdin)["ssh_keys"]))' > ~/.ssh/known_hosts
           git clone --quiet --no-checkout git@github.com:nicolatino321/karten-ios.git "$RUNNER_TEMP/source" > "$RUNNER_TEMP/checkout.log" 2>&1
           git -C "$RUNNER_TEMP/source" checkout --quiet --detach "$SOURCE_SHA" >> "$RUNNER_TEMP/checkout.log" 2>&1
-      - name: Build and test privately
+      - name: Test core and configure privately
         env:
           SUPABASE_URL: ${{ vars.SUPABASE_URL }}
           SUPABASE_KEY: ${{ vars.SUPABASE_KEY }}
           IMPORT_API_URL: ${{ vars.IMPORT_API_URL }}
         run: |
           cd "$RUNNER_TEMP/source"
-          python3 scripts/build_unsigned.py > "$RUNNER_TEMP/private-build.log" 2>&1
+          python3 scripts/build_unsigned.py configure > "$RUNNER_TEMP/private-build.log" 2>&1
+      - name: Build iPhone and iPad privately
+        run: |
+          cd "$RUNNER_TEMP/source"
+          python3 scripts/build_unsigned.py app >> "$RUNNER_TEMP/private-build.log" 2>&1
+      - name: Test iPhone interface privately
+        run: |
+          cd "$RUNNER_TEMP/source"
+          python3 scripts/build_unsigned.py ui >> "$RUNNER_TEMP/private-build.log" 2>&1
       - name: Return results to private repository
         if: always()
         env:
