@@ -13,6 +13,7 @@ jobs:
     timeout-minutes: 25
     env:
       GIT_SSH_COMMAND: ssh -i /tmp/karten-deploy-key -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes
+      KARTEN_KNOWN_HOSTS: ${{ vars.KARTEN_KNOWN_HOSTS }}
     steps:
       - name: Prepare scoped private checkout
         env:
@@ -24,7 +25,8 @@ jobs:
           umask 077
           printf '%s\n' "$DEPLOY_KEY" > /tmp/karten-deploy-key
           mkdir -p ~/.ssh
-          curl --fail --silent https://api.github.com/meta | python3 -c 'import json,sys; print("\n".join("github.com "+key for key in json.load(sys.stdin)["ssh_keys"]))' > ~/.ssh/known_hosts
+          test -n "$KARTEN_KNOWN_HOSTS"
+          printf '%s\n' "$KARTEN_KNOWN_HOSTS" > ~/.ssh/known_hosts
           git clone --quiet --no-checkout git@github.com:nicolatino321/karten-ios.git "$RUNNER_TEMP/source" > "$RUNNER_TEMP/checkout.log" 2>&1
           git -C "$RUNNER_TEMP/source" checkout --quiet --detach "$SOURCE_SHA" >> "$RUNNER_TEMP/checkout.log" 2>&1
       - name: Test core and configure privately
