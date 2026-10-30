@@ -1,0 +1,65 @@
+name: Private Karten build worker
+on:
+  workflow_dispatch:
+    inputs:
+      source_sha:
+        description: Approved private source commit
+        required: true
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: macos-15
+    timeout-minutes: 25
+    env:
+      GIT_SSH_COMMAND: ssh -i /tmp/karten-deploy-key -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes
+    steps:
+      - name: Prepare scoped private checkout
+        env:
+          DEPLOY_KEY: ${{ secrets.KARTEN_DEPLOY_KEY }}
+          SOURCE_SHA: ${{ inputs.source_sha }}
+        run: |
+          set -eu
+          printf '%s' "$SOURCE_SHA" | grep -Eq '^[0-9a-f]{40}$'
+          umask 077
+          printf '%s\n' "$DEPLOY_KEY" > /tmp/karten-deploy-key
+          mkdir -p ~/.ssh
+          curl --fail --silent https://api.github.com/meta | python3 -c 'import json,sys; print("\n".join("github.com "+key for key in json.load(sys.stdin)["ssh_keys"]))' > ~/.ssh/known_hosts
+          git clone --quiet --no-checkout git@github.com:nicolatino321/karten-ios.git "$RUNNER_TEMP/source" > "$RUNNER_TEMP/checkout.log" 2>&1
+          git -C "$RUNNER_TEMP/source" checkout --quiet --detach "$SOURCE_SHA" >> "$RUNNER_TEMP/checkout.log" 2>&1
+      - name: Build and test privately
+        env:
+          SUPABASE_URL: ${{ vars.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ vars.SUPABASE_KEY }}
+          IMPORT_API_URL: ${{ vars.IMPORT_API_URL }}
+        run: |
+          cd "$RUNNER_TEMP/source"
+          python3 scripts/build_unsigned.py > "$RUNNER_TEMP/private-build.log" 2>&1
+      - name: Return results to private repository
+        if: always()
+        env:
+          SOURCE_SHA: ${{ inputs.source_sha }}
+          BUILD_OUTCOME: ${{ job.status }}
+        run: |
+          set -eu
+          mkdir -p "$RUNNER_TEMP/result"
+          cp "$RUNNER_TEMP/private-build.log" "$RUNNER_TEMP/result/build.log" 2>/dev/null || true
+          cp "$RUNNER_TEMP/checkout.log" "$RUNNER_TEMP/result/checkout.log" 2>/dev/null || true
+          if [ "$BUILD_OUTCOME" = success ]; then
+            cp "$RUNNER_TEMP/source/artifacts/Karten-unsigned.ipa" "$RUNNER_TEMP/result/"
+            cp "$RUNNER_TEMP/source/artifacts/Karten-unsigned.ipa.sha256" "$RUNNER_TEMP/result/"
+          fi
+          cp "$RUNNER_TEMP/source/artifacts/Karten-Ansichten.zip" "$RUNNER_TEMP/result/" 2>/dev/null || true
+          cp "$RUNNER_TEMP/source/artifacts/Karten-preview.png" "$RUNNER_TEMP/result/" 2>/dev/null || true
+          python3 -c 'import json,os,pathlib; pathlib.Path(os.environ["RUNNER_TEMP"],"result","status.json").write_text(json.dumps({"source":os.environ["SOURCE_SHA"],"outcome":os.environ["BUILD_OUTCOME"]}))'
+          git init --quiet "$RUNNER_TEMP/result"
+          git -C "$RUNNER_TEMP/result" config user.name 'Karten Build'
+          git -C "$RUNNER_TEMP/result" config user.email 'karten-build@users.noreply.github.com'
+          git -C "$RUNNER_TEMP/result" add .
+          git -C "$RUNNER_TEMP/result" commit --quiet -m 'Private build output'
+          git -C "$RUNNER_TEMP/result" remote add origin git@github.com:nicolatino321/karten-ios.git
+          git -C "$RUNNER_TEMP/result" push --quiet origin "HEAD:refs/heads/build-output/v04-${GITHUB_RUN_ID}" > "$RUNNER_TEMP/upload.log" 2>&1
+      - name: Remove temporary key
+        if: always()
+        run: |
+          python3 -c 'import pathlib; pathlib.Path("/tmp/karten-deploy-key").unlink(missing_ok=True)'
