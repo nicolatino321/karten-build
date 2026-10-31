@@ -11,7 +11,7 @@ on:
         options: [full, changed]
         default: full
 concurrency:
-  group: karten-private-build-${{ inputs.source_sha }}
+  group: karten-private-build-${{ inputs.source_sha }}-${{ inputs.validation_scope }}
   cancel-in-progress: true
 permissions:
   contents: read
