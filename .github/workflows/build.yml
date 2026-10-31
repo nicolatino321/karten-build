@@ -67,7 +67,8 @@ jobs:
           mkdir -p "$RUNNER_TEMP/result"
           cp "$RUNNER_TEMP/private-build.log" "$RUNNER_TEMP/result/build.log" 2>/dev/null || true
           cp "$RUNNER_TEMP/checkout.log" "$RUNNER_TEMP/result/checkout.log" 2>/dev/null || true
-          if [ "$BUILD_OUTCOME" = success ]; then
+          if [ -f "$RUNNER_TEMP/source/artifacts/Karten-unsigned.ipa.sha256" ]; then
+            (cd "$RUNNER_TEMP/source/artifacts" && shasum -a 256 -c Karten-unsigned.ipa.sha256) > "$RUNNER_TEMP/ipa-check.log" 2>&1
             cp "$RUNNER_TEMP/source/artifacts/Karten-unsigned.ipa" "$RUNNER_TEMP/result/"
             cp "$RUNNER_TEMP/source/artifacts/Karten-unsigned.ipa.sha256" "$RUNNER_TEMP/result/"
           fi
