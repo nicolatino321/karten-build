@@ -8,7 +8,7 @@ on:
       validation_scope:
         description: Private validation scope
         type: choice
-        options: [full, changed, drag, glass, preview]
+        options: [full, changed, drag, glass, group, preview]
         default: full
 concurrency:
   group: karten-private-build-${{ inputs.source_sha }}-${{ inputs.validation_scope }}
